@@ -17,7 +17,7 @@ export const validateRegister = (input: UserInput) => {
       },
     ];
   }
-  if (!input.email.includes("@")) {
+  if (!input.email.includes("@") || input.email.length < 2) {
     return [
       {
         field: "email",

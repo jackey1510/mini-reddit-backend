@@ -8,7 +8,7 @@ import "reflect-metadata";
 
 import express from "express";
 import UserResolver from "./resolvers/UserResolver";
-import redis from "redis";
+import Redis from "ioredis";
 import session from "express-session";
 import connectRedis from "connect-redis";
 import cors from "cors";
@@ -23,7 +23,7 @@ async function main() {
 
   const app = express();
   const RedisStore = connectRedis(session);
-  const redisClient = redis.createClient();
+  const redis = new Redis();
 
   app.use(
     cors({
@@ -35,7 +35,7 @@ async function main() {
   app.use(
     session({
       name: COOKIE_NAME,
-      store: new RedisStore({ client: redisClient, disableTouch: true }),
+      store: new RedisStore({ client: redis, disableTouch: true }),
       saveUninitialized: false,
       secret: process.env.REDIS_SECRET || "hgihsigid",
       resave: false,
@@ -52,7 +52,7 @@ async function main() {
       resolvers: [PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): Context => ({ em: orm.em, req, res }),
+    context: ({ req, res }): Context => ({ em: orm.em, req, res, redis }),
   });
   apolloServer.applyMiddleware({ app, cors: false });
   app.get("/", (_req, _res) => {
