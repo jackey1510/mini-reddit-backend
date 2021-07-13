@@ -22,12 +22,12 @@ const port = process.env.PORT || 4000;
 async function main() {
   await createConnection({
     type: "postgres",
-    database: "mini-reddit-2",
+    database: process.env.DB_NAME,
     username: process.env.DB_USERNAME!,
     password: process.env.DB_PASSWORD!,
     logging: true,
     synchronize: true,
-    port: 5432,
+    port: Number(process.env.DB_PORT) || 5432,
     entities: [Post, User],
   });
 

@@ -19,11 +19,11 @@ export class Post extends BaseEntity {
 
   @Field(() => Date)
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @Field(() => Date)
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 
   @Field()
   @Column()
@@ -42,5 +42,5 @@ export class Post extends BaseEntity {
 
   @Field()
   @Column()
-  creatorId: number;
+  creator_id: number;
 }
