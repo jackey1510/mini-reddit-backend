@@ -10,6 +10,7 @@ import {
   UseMiddleware,
   FieldResolver,
   Root,
+  ObjectType,
 } from "type-graphql";
 import { Post } from "../entities/post";
 import { Context } from "../constants";
@@ -24,6 +25,14 @@ class PostInput {
   text: string;
 }
 
+@ObjectType()
+class PaginatedPosts {
+  @Field(() => [Post])
+  posts: Post[];
+  @Field(() => Boolean)
+  hasNext: boolean;
+}
+
 @Resolver(Post)
 export default class PostResolver {
   @FieldResolver(() => String)
@@ -32,26 +41,31 @@ export default class PostResolver {
       ? root.text
       : root.text.slice(0, 50).substr(0, root.text.lastIndexOf(" ")) + "...";
   }
-  @Query(() => [Post])
-  posts(
+  @Query(() => PaginatedPosts)
+  async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, {
       nullable: true,
     })
     cursor: string | null
-  ): Promise<Post[]> {
-    const realLimit = Math.min(50, limit);
+  ): Promise<PaginatedPosts> {
+    const realLimit = Math.min(50, limit) + 1;
     let qb = getConnection()
       .getRepository(Post)
       .createQueryBuilder("post")
       .orderBy('"created_at"', "DESC")
       .take(realLimit);
     if (cursor) {
-      return qb
-        .where('post."created_at" < :cursor', { cursor: new Date(cursor) })
-        .getMany();
+      qb = qb.where('post."created_at" < :cursor', {
+        cursor: new Date(cursor),
+      });
     }
-    return qb.getMany();
+
+    const posts = await qb.getMany();
+    return {
+      posts: posts.slice(0, realLimit - 1),
+      hasNext: posts.length === realLimit,
+    };
   }
 
   @Query(() => Post, { nullable: true })
