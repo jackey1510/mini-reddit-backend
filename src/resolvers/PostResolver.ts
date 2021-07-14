@@ -1,21 +1,22 @@
+import { Upvote } from "./../entities/Upvote";
 import {
-  Resolver,
-  Query,
-  Ctx,
   Arg,
+  Ctx,
+  Field,
+  FieldResolver,
+  InputType,
   Int,
   Mutation,
-  InputType,
-  Field,
-  UseMiddleware,
-  FieldResolver,
-  Root,
   ObjectType,
+  Query,
+  Resolver,
+  Root,
+  UseMiddleware,
 } from "type-graphql";
-import { Post } from "../entities/post";
-import { Context } from "../constants";
-import { isAuth } from "../middleware/auth";
 import { getConnection } from "typeorm";
+import { Context } from "../constants";
+import { Post } from "../entities/post";
+import { isAuth } from "../middleware/auth";
 
 @InputType()
 class PostInput {
@@ -36,11 +37,40 @@ class PaginatedPosts {
 @Resolver(Post)
 export default class PostResolver {
   @FieldResolver(() => String)
-  text_snippet(@Root() root: Post) {
+  textSnippet(@Root() root: Post) {
     return root.text.length < 50
       ? root.text
       : root.text.slice(0, 50).substr(0, root.text.lastIndexOf(" ")) + "...";
   }
+
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async vote(
+    @Arg("value", () => Int) value: number,
+    @Arg("postId", () => Int) postId: number,
+    @Ctx() { req }: Context
+  ) {
+    const userId = req.session.userId;
+    const upOrDown = value !== -1 ? 1 : -1;
+    try {
+      await Upvote.insert({
+        userId,
+        postId,
+        value: upOrDown,
+      });
+      await getConnection()
+        .createQueryBuilder()
+        .update(Post)
+        .set({ points: () => `points + ${upOrDown}` })
+        .where({ id: postId })
+        .execute();
+    } catch (error) {
+      return false;
+    }
+
+    return true;
+  }
+
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
@@ -53,10 +83,11 @@ export default class PostResolver {
     let qb = getConnection()
       .getRepository(Post)
       .createQueryBuilder("post")
-      .orderBy('"created_at"', "DESC")
+      .innerJoinAndSelect("post.creator", "creator")
+      .orderBy("post.createdAt", "DESC")
       .take(realLimit);
     if (cursor) {
-      qb = qb.where('post."created_at" < :cursor', {
+      qb = qb.where(`post."createdAt" < :cursor`, {
         cursor: new Date(cursor),
       });
     }
@@ -75,12 +106,17 @@ export default class PostResolver {
 
   @Mutation(() => Post)
   @UseMiddleware(isAuth)
-  createPost(
+  async createPost(
     @Arg("input") input: PostInput,
     @Ctx() { req }: Context
   ): Promise<Post> {
-    const creator_id = req.session.userId;
-    return Post.create({ ...input, creator_id }).save();
+    const creatorId: number = req.session.userId!;
+    // console.log(creatorId);
+    // const creator = await User.findOne(creatorId);
+    return Post.create({
+      ...input,
+      creatorId: creatorId,
+    }).save();
   }
 
   @Mutation(() => Post)

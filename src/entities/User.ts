@@ -1,3 +1,4 @@
+import { Upvote } from "./Upvote";
 import { ObjectType, Field, Int } from "type-graphql";
 import {
   PrimaryGeneratedColumn,
@@ -19,11 +20,11 @@ export class User extends BaseEntity {
 
   @Field(() => Date)
   @CreateDateColumn()
-  created_at: Date;
+  createdAt: Date;
 
   @Field(() => Date)
   @UpdateDateColumn()
-  updated_at: Date;
+  updatedAt: Date;
 
   @Field()
   @Column({ unique: true })
@@ -36,6 +37,11 @@ export class User extends BaseEntity {
   @Column()
   password!: string;
 
+  @Field(() => [Post])
   @OneToMany(() => Post, (post) => post.creator)
-  posts: Post[];
+  posts: Promise<Post[]>;
+
+  @Field(() => [Upvote])
+  @OneToMany(() => Upvote, (upvote) => upvote.user, { cascade: true })
+  upvotes: Promise<Upvote[]>;
 }

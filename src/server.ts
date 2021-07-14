@@ -1,3 +1,4 @@
+import { Upvote } from "./entities/Upvote";
 import { __prod__, Context, COOKIE_NAME } from "./constants";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
@@ -28,7 +29,7 @@ async function main() {
     logging: true,
     synchronize: true,
     port: Number(process.env.DB_PORT) || 5432,
-    entities: [Post, User],
+    entities: [Post, User, Upvote],
   });
 
   const app = express();
