@@ -52,23 +52,58 @@ export default class PostResolver {
   ) {
     const userId = req.session.userId;
     const upOrDown = value !== -1 ? 1 : -1;
+    const vote = await Upvote.findOne({ userId, postId });
+    if (!vote) {
+      console.log("Havn't voted");
+      try {
+        await Upvote.insert({
+          userId,
+          postId,
+          value: upOrDown,
+        });
+        await getConnection()
+          .createQueryBuilder()
+          .update(Post)
+          .set({ points: () => `points + ${upOrDown}` })
+          .where({ id: postId })
+          .execute();
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    }
+    if (value === vote.value) {
+      let delta = upOrDown === 1 ? -1 : 1;
+      try {
+        await vote.remove();
+        await getConnection()
+          .createQueryBuilder()
+          .update(Post)
+          .set({ points: () => `points + ${delta}` })
+          .where({ id: postId })
+          .execute();
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    }
     try {
-      await Upvote.insert({
-        userId,
-        postId,
-        value: upOrDown,
-      });
+      console.log("----------------------");
+      Upvote.update({ postId, userId }, { value: upOrDown });
+      let delta = upOrDown === 1 ? 2 : -2;
       await getConnection()
         .createQueryBuilder()
         .update(Post)
-        .set({ points: () => `points + ${upOrDown}` })
+        .set({ points: () => `points + ${delta}` })
         .where({ id: postId })
         .execute();
+      return true;
     } catch (error) {
+      console.error(error);
       return false;
     }
-
-    return true;
   }
 
   @Query(() => PaginatedPosts)
