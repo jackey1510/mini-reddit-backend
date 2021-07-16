@@ -52,4 +52,7 @@ export class Post extends BaseEntity {
   @Field(() => [Upvote])
   @OneToMany(() => Upvote, (upvote) => upvote.post)
   upvotes: Promise<Upvote[]>;
+
+  @Field(() => Int, { nullable: true })
+  voteStatus: number;
 }

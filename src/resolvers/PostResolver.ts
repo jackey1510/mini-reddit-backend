@@ -43,6 +43,23 @@ export default class PostResolver {
       : root.text.slice(0, 50).substr(0, root.text.lastIndexOf(" ")) + "...";
   }
 
+  //   @FieldResolver(() => Int, { nullable: false })
+  //   async voteStatus(@Root() root: Post, @Ctx() { req }: Context) {
+  //     console.log(req.session);
+  //     if (!req.session.userId) return 1;
+  //     const vote = await Upvote.findOne({
+  //       userId: req.session.userId,
+  //       postId: root.id,
+  //     });
+  //     if (!vote) return 0;
+  //     if (vote.value === 1) {
+  //       console.log("up");
+  //       return 1;
+  //     }
+  //     console.log("down");
+  //     return -1;
+  //   }
+
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async vote(
@@ -51,8 +68,10 @@ export default class PostResolver {
     @Ctx() { req }: Context
   ) {
     const userId = req.session.userId;
+    console.log(userId);
     const upOrDown = value !== -1 ? 1 : -1;
-    const vote = await Upvote.findOne({ userId, postId });
+    console.log(postId);
+    const vote = await Upvote.findOne({ where: { userId, postId } });
     if (!vote) {
       console.log("Havn't voted");
       try {
@@ -112,22 +131,35 @@ export default class PostResolver {
     @Arg("cursor", () => String, {
       nullable: true,
     })
-    cursor: string | null
+    cursor: string | null,
+    @Ctx() { req }: Context
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit) + 1;
-    let qb = getConnection()
-      .getRepository(Post)
-      .createQueryBuilder("post")
-      .innerJoinAndSelect("post.creator", "creator")
-      .orderBy("post.createdAt", "DESC")
-      .take(realLimit);
-    if (cursor) {
-      qb = qb.where(`post."createdAt" < :cursor`, {
-        cursor: new Date(cursor),
-      });
-    }
+    let qb = getConnection().query(
+      `select p.*, json_build_object('id',u.id, 'username',u.username,'email',u.email, 'createdAt',u."createdAt",'updatedAt',u."updatedAt") creator, ${
+        req.session.userId
+          ? `(select value from upvote where "userId" = ${req.session.userId} and "postId" = p.id ) "voteStatus"`
+          : 'null as "voteStatus"'
+      } from post p inner join public.user u on u.id = p."creatorId" ${
+        cursor ? `where p."createdAt" < $2` : ""
+      } order by p."createdAt" DESC limit $1`,
+      cursor ? [limit, cursor] : [limit]
+    );
+    //   .getRepository(Post)
+    //   .createQueryBuilder("post")
+    //   .select("post")
 
-    const posts = await qb.getMany();
+    //   .innerJoinAndSelect("post.creator", "creator")
+    //   .orderBy("post.createdAt", "DESC")
+    //   .take(realLimit);
+    // if (cursor) {
+    //   qb = qb.where(`post."createdAt" < :cursor`, {
+    //     cursor: new Date(cursor),
+    //   });
+    // }
+
+    const posts = await qb;
+    console.log(posts);
     return {
       posts: posts.slice(0, realLimit - 1),
       hasNext: posts.length === realLimit,
