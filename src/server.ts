@@ -31,6 +31,9 @@ async function main() {
     synchronize: true,
     port: Number(process.env.DB_PORT) || 5432,
     entities: [Post, User, Upvote],
+    ssl: {
+      rejectUnauthorized: false,
+    },
   });
 
   await conn.runMigrations();
