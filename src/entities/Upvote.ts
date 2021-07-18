@@ -7,7 +7,7 @@ import {
   RelationId,
   PrimaryColumn,
 } from "typeorm";
-import { Post } from "./post";
+import { Post } from "./Post";
 import { User } from "./User";
 
 @ObjectType()
@@ -27,7 +27,7 @@ export class Upvote extends BaseEntity {
   userId!: number;
 
   @Field(() => Post)
-  @ManyToOne(() => Post, (post) => post.upvotes)
+  @ManyToOne(() => Post, (post) => post.upvotes, { onDelete: "CASCADE" })
   post!: Promise<Post>;
 
   @Field(() => Int)

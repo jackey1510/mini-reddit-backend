@@ -190,7 +190,7 @@ export default class UserResolver {
       1000 * 60 * 60 * 24 * 3
     );
 
-    let html = `<a href="http://localhost:3000/change-password/${token}">Reset Password</a>`;
+    let html = `<a href="${process.env.CORS_ORIGIN}/change-password/${token}">Reset Password</a>`;
     await sendEmail(email, html);
     return true;
   }

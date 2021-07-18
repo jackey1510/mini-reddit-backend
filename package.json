@@ -7,7 +7,8 @@
     "watch": "tsc -w",
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "nodemon dist/server.js"
+    "dev": "nodemon dist/server.js",
+    "gen-env": "gen-env-types .env -o src/types/env.d.ts -e ."
   },
   "repository": {
     "type": "git",
@@ -29,7 +30,8 @@
     "@types/node": "^16.3.0",
     "@types/nodemailer": "^6.4.4",
     "@types/uuid": "^8.3.1",
-    "dotenv": "^10.0.0",
+    "dotenv-safe": "^8.2.0",
+    "gen-env-types": "^1.3.0",
     "nodemon": "^2.0.10",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.5"
@@ -42,6 +44,7 @@
     "class-validator": "^0.13.1",
     "connect-redis": "^6.0.0",
     "cors": "^2.8.5",
+    "dataloader": "^2.0.0",
     "express": "^4.17.1",
     "express-session": "^1.17.2",
     "graphql": "^15.5.1",

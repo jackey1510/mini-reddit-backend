@@ -1,4 +1,4 @@
-import { Upvote } from "./../entities/Upvote";
+import { Context } from "src/constants";
 import {
   Arg,
   Ctx,
@@ -14,9 +14,10 @@ import {
   UseMiddleware,
 } from "type-graphql";
 import { getConnection } from "typeorm";
-import { Context } from "../constants";
-import { Post } from "../entities/post";
-import { isAuth } from "../middleware/auth";
+import { Post } from "../entities/Post";
+import { User } from "../entities/User";
+import { Upvote } from "./../entities/Upvote";
+import { isAuth } from "./../middleware/auth";
 
 @InputType()
 class PostInput {
@@ -41,6 +42,23 @@ export default class PostResolver {
     return root.text.length < 50
       ? root.text
       : root.text.slice(0, 50).substr(0, root.text.lastIndexOf(" ")) + "...";
+  }
+
+  @FieldResolver(() => User)
+  creator(@Root() root: Post, @Ctx() { dataLoaders }: Context) {
+    return dataLoaders.userLoader.load(root.creatorId);
+  }
+
+  @FieldResolver(() => Int, { nullable: true })
+  async voteStatus(@Root() root: Post, @Ctx() { dataLoaders, req }: Context) {
+    const userId = req.session.userId;
+    if (!userId) return null;
+    const voteValue = await dataLoaders.upvoteLoader.load({
+      postId: root.id,
+      userId,
+    });
+
+    return voteValue ? voteValue.value : null;
   }
 
   //   @FieldResolver(() => Int, { nullable: false })
@@ -131,16 +149,15 @@ export default class PostResolver {
     @Arg("cursor", () => String, {
       nullable: true,
     })
-    cursor: string | null,
-    @Ctx() { req }: Context
+    cursor: string | null
+    // @Ctx() { req }: Context
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit) + 1;
     let qb = getConnection().query(
-      `select p.*, json_build_object('id',u.id, 'username',u.username,'email',u.email, 'createdAt',u."createdAt",'updatedAt',u."updatedAt") creator, ${
-        req.session.userId
-          ? `(select value from upvote where "userId" = ${req.session.userId} and "postId" = p.id ) "voteStatus"`
-          : 'null as "voteStatus"'
-      } from post p inner join public.user u on u.id = p."creatorId" ${
+      `select p.*
+       from post p 
+
+      ${
         cursor ? `where p."createdAt" < $2` : ""
       } order by p."createdAt" DESC limit $1`,
       cursor ? [limit, cursor] : [limit]
@@ -159,7 +176,6 @@ export default class PostResolver {
     // }
 
     const posts = await qb;
-    console.log(posts);
     return {
       posts: posts.slice(0, realLimit - 1),
       hasNext: posts.length === realLimit,
@@ -187,22 +203,42 @@ export default class PostResolver {
   }
 
   @Mutation(() => Post)
+  @UseMiddleware(isAuth)
   async updatePost(
     @Arg("id", () => Int) id: number,
-    @Arg("title", { nullable: true }) title: string
-  ): Promise<Post | undefined> {
-    let post = await Post.findOne({ id });
-    if (!post) return undefined;
-    if (title) {
-      post.title = title;
-    }
-    await Post.update(id, { title });
-    return post;
+    @Arg("text", { nullable: true }) text: string,
+    @Ctx() { req }: Context
+  ): Promise<Post | null> {
+    // let post = await Post.findOne({ id });
+    // if (!post) return null;
+    return (
+      await getConnection()
+        .createQueryBuilder()
+        .update(Post)
+        .set({ text })
+        .where('id=:id and "creatorId"=:creatorId', {
+          id,
+          creatorId: req.session.userId,
+        })
+        .returning("*")
+        .execute()
+    ).raw[0];
+
+    // return await Post.update({ id, creatorId: req.session.userId }, { text });
   }
 
   @Mutation(() => Boolean)
-  async deletePost(@Arg("id", () => Int) id: number): Promise<boolean> {
-    (await Post.findOne(id))?.remove();
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Arg("id", () => Int) id: number,
+    @Ctx() { req }: Context
+  ): Promise<boolean> {
+    await Post.delete({ id, creatorId: req.session.userId }).catch(
+      (err: Error) => {
+        console.error(err);
+        return false;
+      }
+    );
 
     return true;
   }

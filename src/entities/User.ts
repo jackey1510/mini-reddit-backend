@@ -9,7 +9,7 @@ import {
   BaseEntity,
   OneToMany,
 } from "typeorm";
-import { Post } from "./post";
+import { Post } from "./Post";
 
 @ObjectType()
 @Entity()
